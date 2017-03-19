@@ -58,8 +58,8 @@ class Action {
         return new Action(ACTION_TYPE.APPEND_ROW);
     }
 
-    static generatePreRemoveRowAction (): Action {
-        return new Action(ACTION_TYPE.PRE_REMOVE_ROW);
+    static generatePreRemoveRowAction (payload: any): Action {
+        return new Action(ACTION_TYPE.PRE_REMOVE_ROW, payload);
     }
 
     static generateRemoveRowAction (): Action {

@@ -250,15 +250,14 @@ class RenderTable {
         this._updateView().then(next);
     }
 
-    preRemoveRow (next: () => void) {
-        let lastRowIndex = this._renderTable.length - 1;
-        let lastRenderRow = this._renderTable[lastRowIndex];
+    preRemoveRow (rowIndex: number, next: () => void) {
+        let renderRow = this._renderTable[rowIndex];
 
-        lastRenderRow.forEach((renderCell, columnIndex) => {
+        renderRow.forEach((renderCell, columnIndex) => {
             if (DataCell.isDataCell(renderCell) || AnimatedDataCell.isAnimatedDataCell(renderCell)) {
-                this._renderTable[lastRowIndex][columnIndex] = new AnimatedDataCell(true);
+                this._renderTable[rowIndex][columnIndex] = new AnimatedDataCell(true);
             } else if (ExpandCell.isExpandCell(renderCell) || AnimatedExpandCell.isAnimatedExpandCell(renderCell)) {
-                this._renderTable[lastRowIndex][columnIndex] = new AnimatedExpandCell(true);
+                this._renderTable[rowIndex][columnIndex] = new AnimatedExpandCell(true);
             }
         });
 

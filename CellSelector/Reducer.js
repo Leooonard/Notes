@@ -22,45 +22,63 @@ type ReducerType = Reducer;
 class Reducer {
     _actionManager: ActionManagerType;
     _renderTable: RenderTableType;
+    _reduceFinish: () => void;
 
-    constructor (actionManager: ActionManagerType, renderTable: RenderTableType) {
+    constructor (actionManager: ActionManagerType, renderTable: RenderTableType, reduceFinish: () => void) {
         this._actionManager = actionManager;
         this._renderTable = renderTable;
+        this._reduceFinish = reduceFinish;
     }
 
     startReduceAction () {
         let nextAction = this._actionManager.getAction();
 
         if (nextAction === null) {
+            this._reduceFinish();
             return;
         }
 
+        if (Array.isArray(nextAction)) {
+            Promise.all(nextAction.map(action => this._reduce(action))).then(this.startReduceAction.bind(this));
+        } else {
+            this._reduce(nextAction).then(this.startReduceAction.bind(this));
+        }
+    }
+
+    _reduce (nextAction: Action): Promise<any> {
         let payload;
 
         switch (nextAction.getType()) {
             case ACTION_TYPE.APPEND_ROW:
-                this._renderTable.appendRowWithAnimatedCell(this.startReduceAction.bind(this));
-                break;
+                return new Promise(resolve => {
+                    this._renderTable.appendRowWithAnimatedCell(resolve);
+                });
             case ACTION_TYPE.SHOW_CELL:
             case ACTION_TYPE.HIDE_CELL:
             case ACTION_TYPE.ANIMATE_REPLACE_CELL:
-                payload = nextAction.getPayload();
-                this._renderTable.animateCell(payload.rowIndex, payload.columnIndex, this.startReduceAction.bind(this));
-                break;
+                return new Promise(resolve => {
+                    payload = nextAction.getPayload();
+                    this._renderTable.animateCell(payload.rowIndex, payload.columnIndex, resolve);
+                })
             case ACTION_TYPE.REPLACE_CELL:
-                payload = nextAction.getPayload();
-                this._renderTable.replaceCell(payload.rowIndex, payload.columnIndex, this.startReduceAction.bind(this));
-                break;
+                return new Promise(resolve => {
+                    payload = nextAction.getPayload();
+                    this._renderTable.replaceCell(payload.rowIndex, payload.columnIndex, resolve);
+                });
             case ACTION_TYPE.PRE_REMOVE_ROW:
-                this._renderTable.preRemoveRow(this.startReduceAction.bind(this));
-                break;
+                return new Promise(resolve => {
+                    payload = nextAction.getPayload();
+                    this._renderTable.preRemoveRow(payload.rowIndex, resolve);
+                });
             case ACTION_TYPE.REMOVE_ROW:
-                this._renderTable.removeRow(this.startReduceAction.bind(this));
-                break;
+                return new Promise(resolve => {
+                    this._renderTable.removeRow(resolve);
+                });
             case ACTION_TYPE.REPLACE_CELL_FINISH:
-                payload = nextAction.getPayload();
-                this._renderTable.replaceCellFinish(payload.rowIndex, payload.columnIndex, this.startReduceAction.bind(this));
-                break;
+                return new Promise(resolve => {
+                    payload = nextAction.getPayload();
+                    this._renderTable.replaceCellFinish(payload.rowIndex, payload.columnIndex, resolve);
+                });
             default:
                 throw new Error('unknown action type');
         }

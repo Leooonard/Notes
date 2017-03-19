@@ -91,7 +91,6 @@ type Props = {
 };
 
 type State = {
-    isAnimating: bool, // 当前渲染是否使用动画效果。
     renderTable: Array<Array<CellType>> // 当前将要渲染的Cell表格。
 };
 
@@ -103,6 +102,7 @@ class CellSelector extends Component {
     _actionManager: ActionManagerType;
     _reducer: ReducerType;
     _isExpanding: bool;
+    _isAnimating: bool;
 
     constructor (props: Props) {
         super(props);
@@ -123,11 +123,11 @@ class CellSelector extends Component {
         this._renderTable = new RenderTable(this._dataTable, this._needPackup, defaultExpand,
                                             maxRowForBrief, this.renderTablePromisely.bind(this));
         this._actionManager = new ActionManager(this._renderTable, this._dataTable);
-        this._reducer = new Reducer(this._actionManager, this._renderTable);
+        this._reducer = new Reducer(this._actionManager, this._renderTable, this._stopAnimating.bind(this));
 
         this._isExpanding = defaultExpand;
+        this._isAnimating = false;
         this.state = {
-            isAnimating: false,
             renderTable: this._renderTable.getTable()
         };
     }
@@ -142,6 +142,7 @@ class CellSelector extends Component {
         } = this.props;
 
         this._isExpanding = !this._isExpanding;
+        this._isAnimating = true;
         this._renderTable.setIsExpanding(this._isExpanding)
 
         if (this._isExpanding) {
@@ -161,6 +162,10 @@ class CellSelector extends Component {
         });
     }
 
+    _stopAnimating () {
+        this._isAnimating = false;
+    }
+
     _renderEmptyCell () {
         return (
             <View></View>
@@ -176,6 +181,7 @@ class CellSelector extends Component {
         let isExpanding = this._isExpanding;
 
         let cellComponent;
+        let self = this;
 
         if (ExpandCell.isExpandCell(dataCell)) {
             cellComponent = renderExpandCell(isExpanding, this._toggleExpanding.bind(this));
@@ -196,7 +202,9 @@ class CellSelector extends Component {
                 <Animated.View style = {{
                     opacity: dataCell.getAnimatedValue()
                 }}>
-                    {renderExpandCell(isExpanding, this._toggleExpanding.bind(this))}
+                    {
+                        renderExpandCell(true, self._toggleExpanding.bind(self))
+                    }
                 </Animated.View>
             );
         } else if (AnimatedReplaceCell.isAnimatedReplaceCell(dataCell)) {
@@ -218,7 +226,9 @@ class CellSelector extends Component {
                     <Animated.View style = {{
                         opacity: dataCell.getCurrentAnimatedValue()
                     }}>
-                        {renderExpandCell(!isExpanding, this._toggleExpanding.bind(this))}
+                        {
+                            renderExpandCell(!isExpanding, self._toggleExpanding.bind(self))
+                        }
                     </Animated.View>
                 );
             } else {
@@ -248,7 +258,9 @@ class CellSelector extends Component {
                         top: 0,
                         bottom: 0
                     }}>
-                        {renderExpandCell(isExpanding, this._toggleExpanding.bind(this))}
+                        {
+                            renderExpandCell(isExpanding, self._toggleExpanding.bind(self))
+                        }
                     </Animated.View>
                 );
             } else {

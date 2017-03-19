@@ -17,7 +17,7 @@ class AnimatedCell {
     _duration: number;
     _animatedValue: any;
 
-    constructor (display: bool, duration: number = 100) {
+    constructor (display: bool, duration: number = 500) {
         this._display = display;
         this._duration = duration;
         this._setAnimatedValue();
@@ -67,7 +67,7 @@ class AnimatedReplaceCell extends AnimatedCell {
     _currentCell: CellType;
     _replaceCell: CellType;
 
-    constructor (currentCell: CellType, replaceCell: CellType, duration: number = 100) {
+    constructor (currentCell: CellType, replaceCell: CellType, duration: number = 500) {
         super(false, duration);
 
         this._currentCell = currentCell;

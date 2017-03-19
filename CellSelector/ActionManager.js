@@ -75,6 +75,7 @@ class ActionManager {
         let dataTable = this._dataTable.getTable();
         let dataTableRowCount = dataTable.length;
         let tableWidth = this._dataTable.getTableWidth();
+        let showActionList = [];
 
         let isLastRow = (currentRowIndex: number, totalRowCount: number) => currentRowIndex === totalRowCount - 1;
         let getLastItem = array => array[array.length - 1];
@@ -89,32 +90,32 @@ class ActionManager {
 
                 if (lastDataRowLongEnough) {
                     for (let i = 0 ; i < tableWidth ; i++) {
-                        this._actionList.push(Action.generateShowAction({
+                        showActionList.push(Action.generateShowAction({
                             rowIndex: currentRowIndex,
                             columnIndex: i
                         }));
                     }
                     this._actionList.push(Action.generateAppendRowAction());
-                    this._actionList.push(Action.generateShowAction({
+                    showActionList.push(Action.generateShowAction({
                         rowIndex: currentRowIndex + 1,
                         columnIndex: 0
                     }))
                 } else {
                     for (let i = 0 ; i < lastDataRow.length ; i++) {
-                        this._actionList.push(Action.generateShowAction({
+                        showActionList.push(Action.generateShowAction({
                             rowIndex: currentRowIndex,
                             columnIndex: i
                         }));
                     }
 
-                    this._actionList.push(Action.generateShowAction({
+                    showActionList.push(Action.generateShowAction({
                         rowIndex: currentRowIndex,
                         columnIndex: lastDataRow.length
                     }));
                 }
             } else {
                 for (let i = 0 ; i < tableWidth ; i++) {
-                    this._actionList.push(Action.generateShowAction({
+                    showActionList.push(Action.generateShowAction({
                         rowIndex: currentRowIndex,
                         columnIndex: i
                     }));
@@ -123,6 +124,8 @@ class ActionManager {
 
             renderTableRowCount++;
         }
+
+        this._actionList.push(showActionList);
     }
 
     // 用户点击收起按钮后生成对应的actionList
@@ -131,29 +134,38 @@ class ActionManager {
         let renderTableRowCount = renderTable.length;
         let maxRowForBrief = this._renderTable.getMaxRowForBrief();
         let tableWidth = this._dataTable.getTableWidth();
+        let actionHideList = [];
+        let actionPreRemoveRowList = [];
+        let actionRemoveRowList = [];
 
         while (renderTableRowCount > maxRowForBrief) {
             let currentRowIndex = renderTableRowCount - 1;
             let renderRow = renderTable[currentRowIndex];
             let renderRowLength = renderRow.length;
 
-            this._actionList.push(Action.generatePreRemoveRowAction());
+            actionPreRemoveRowList.push(Action.generatePreRemoveRowAction({
+                rowIndex: currentRowIndex
+            }));
             for (let i = renderRowLength - 1 ; i >= 0 ; i--) {
                 let cell = renderTable[currentRowIndex][i];
 
                 if (DataCell.isDataCell(cell) || AnimatedDataCell.isAnimatedDataCell(cell) ||
                     ExpandCell.isExpandCell(cell) || AnimatedExpandCell.isAnimatedExpandCell(cell)) {
 
-                    this._actionList.push(Action.generateHideAction({
+                    actionHideList.push(Action.generateHideAction({
                         rowIndex: currentRowIndex,
                         columnIndex: i
                     }));
                 }
             }
-            this._actionList.push(Action.generateRemoveRowAction());
+            actionRemoveRowList.push(Action.generateRemoveRowAction());
 
             renderTableRowCount--;
         }
+
+        this._actionList = this._actionList.concat(actionPreRemoveRowList);
+        this._actionList.push(actionHideList);
+        this._actionList = this._actionList.concat(actionRemoveRowList);
 
         this._actionList.push(Action.generateReplaceAction({
             rowIndex: maxRowForBrief - 1,
