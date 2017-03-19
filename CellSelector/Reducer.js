@@ -42,19 +42,27 @@ class Reducer {
                 this._renderTable.appendRowWithAnimatedCell(this.startReduceAction.bind(this));
                 break;
             case ACTION_TYPE.SHOW_CELL:
-                payload = nextAction.getPayload();
-                this._renderTable.animateCell(payload.rowIndex, payload.columnIndex, this.startReduceAction.bind(this));
-                break;
             case ACTION_TYPE.HIDE_CELL:
+            case ACTION_TYPE.ANIMATE_REPLACE_CELL:
                 payload = nextAction.getPayload();
                 this._renderTable.animateCell(payload.rowIndex, payload.columnIndex, this.startReduceAction.bind(this));
                 break;
             case ACTION_TYPE.REPLACE_CELL:
-                // this._renderTable.replaceCell(startReduceAction);
-                this.startReduceAction();
+                payload = nextAction.getPayload();
+                this._renderTable.replaceCell(payload.rowIndex, payload.columnIndex, this.startReduceAction.bind(this));
+                break;
+            case ACTION_TYPE.PRE_REMOVE_ROW:
+                this._renderTable.preRemoveRow(this.startReduceAction.bind(this));
+                break;
+            case ACTION_TYPE.REMOVE_ROW:
+                this._renderTable.removeRow(this.startReduceAction.bind(this));
+                break;
+            case ACTION_TYPE.REPLACE_CELL_FINISH:
+                payload = nextAction.getPayload();
+                this._renderTable.replaceCellFinish(payload.rowIndex, payload.columnIndex, this.startReduceAction.bind(this));
                 break;
             default:
-                throw new Error('unknow action type');
+                throw new Error('unknown action type');
         }
     }
 }

@@ -9,7 +9,8 @@ import {
     ExpandCell,
     EmptyCell,
     AnimatedDataCell,
-    AnimatedExpandCell
+    AnimatedExpandCell,
+    AnimatedReplaceCell
 } from './Cell';
 
 import type {
@@ -39,6 +40,10 @@ class RenderTable {
         this._generateRenderTable();
     }
 
+    getMaxRowForBrief () {
+        return this._maxRowForBrief;
+    }
+
     setIsExpanding (isExpanding: bool) {
         this._isExpanding = isExpanding;
     }
@@ -56,7 +61,7 @@ class RenderTable {
             for (let j = 0 ; j < renderRow.length ; j++) {
                 let renderCell = renderRow[j];
 
-                if (ExpandCell.isExpandCell(renderCell)) {
+                if (ExpandCell.isExpandCell(renderCell) || AnimatedExpandCell.isAnimatedExpandCell(renderCell)) {
                     return {
                         rowIndex: i,
                         columnIndex: j
@@ -196,6 +201,29 @@ class RenderTable {
         this._renderTable = rowList;
     }
 
+    replaceCell (rowIndex: number, columnIndex: number, next: () => void) {
+        let currentCell = this._renderTable[rowIndex][columnIndex];
+        let renderRow = this._generateRenderRow(rowIndex, true, false);
+        let replaceCell = renderRow[columnIndex];
+
+        this._renderTable[rowIndex][columnIndex] = new AnimatedReplaceCell(currentCell, replaceCell);
+        this._updateView().then(next);
+    }
+
+    replaceCellFinish (rowIndex: number, columnIndex: number, next: () => void) {
+        let currentCell = this._renderTable[rowIndex][columnIndex];
+        let replaceCell = currentCell.getReplaceCell();
+
+        if (AnimatedDataCell.isAnimatedDataCell(replaceCell)) {
+            replaceCell = new DataCell();
+        } else {
+            replaceCell = new ExpandCell();
+        }
+
+        this._renderTable[rowIndex][columnIndex] = replaceCell;
+        this._updateView().then(next);
+    }
+
     appendRowWithAnimatedCell (next: () => void) {
         let dataTable = this._dataTable.getTable();
         let tableWidth = this._dataTable.getTableWidth();
@@ -211,9 +239,9 @@ class RenderTable {
         if (equalTableLength) {
             if (this._needAppendRowForExpandCell()) {
                 renderRow = this._generateRowForExpandCell(true, false);
+            } else {
+                throw new Error('there is no render row to append');
             }
-
-            throw new Error('there is no render row to append');
         } else {
             renderRow = this._generateRenderRow(renderTableLength, true, false);
         }
@@ -222,14 +250,34 @@ class RenderTable {
         this._updateView().then(next);
     }
 
+    preRemoveRow (next: () => void) {
+        let lastRowIndex = this._renderTable.length - 1;
+        let lastRenderRow = this._renderTable[lastRowIndex];
+
+        lastRenderRow.forEach((renderCell, columnIndex) => {
+            if (DataCell.isDataCell(renderCell) || AnimatedDataCell.isAnimatedDataCell(renderCell)) {
+                this._renderTable[lastRowIndex][columnIndex] = new AnimatedDataCell(true);
+            } else if (ExpandCell.isExpandCell(renderCell) || AnimatedExpandCell.isAnimatedExpandCell(renderCell)) {
+                this._renderTable[lastRowIndex][columnIndex] = new AnimatedExpandCell(true);
+            }
+        });
+
+        this._updateView().then(next);
+    }
+
+    removeRow (next: () => void) {
+        this._renderTable = this._renderTable.slice(0, -1);
+        this._updateView().then(next);
+    }
+
     animateCell (rowIndex: number, columnIndex: number, next: () => void) {
         let renderCell = this._renderTable[rowIndex][columnIndex];
 
         if (AnimatedDataCell.isAnimatedDataCell(renderCell) ||
-            AnimatedExpandCell.isAnimatedExpandCell(renderCell)) {
+            AnimatedExpandCell.isAnimatedExpandCell(renderCell) ||
+            AnimatedReplaceCell.isAnimatedReplaceCell(renderCell)) {
             renderCell.animate(next);
         } else {
-            debugger;
             throw new Error('only animated data cell could animate');
         }
     }

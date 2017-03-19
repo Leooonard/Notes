@@ -59,7 +59,8 @@ import {
     DataCell,
     EmptyCell,
     AnimatedDataCell,
-    AnimatedExpandCell
+    AnimatedExpandCell,
+    AnimatedReplaceCell
 } from './Cell';
 
 import {
@@ -142,8 +143,14 @@ class CellSelector extends Component {
 
         this._isExpanding = !this._isExpanding;
         this._renderTable.setIsExpanding(this._isExpanding)
-        this._actionManager.dispatchUserAction(Action.generateUserExpandTableAction(),
-                                                () => this._reducer.startReduceAction());
+
+        if (this._isExpanding) {
+            this._actionManager.dispatchUserAction(Action.generateUserExpandTableAction(),
+                                                    () => this._reducer.startReduceAction());
+        } else {
+            this._actionManager.dispatchUserAction(Action.generateUserPackupTableAction(),
+                                                    () => this._reducer.startReduceAction());
+        }
     }
 
     renderTablePromisely () {
@@ -179,7 +186,7 @@ class CellSelector extends Component {
         } else if (AnimatedDataCell.isAnimatedDataCell(dataCell)) {
             cellComponent = (
                 <Animated.View style = {{
-                    opacity: dataCell.getAnimationValue()
+                    opacity: dataCell.getAnimatedValue()
                 }}>
                     {renderCell(dataIndex)}
                 </Animated.View>
@@ -187,10 +194,72 @@ class CellSelector extends Component {
         } else if (AnimatedExpandCell.isAnimatedExpandCell(dataCell)) {
             cellComponent = (
                 <Animated.View style = {{
-                    opacity: dataCell.getAnimationValue()
+                    opacity: dataCell.getAnimatedValue()
                 }}>
                     {renderExpandCell(isExpanding, this._toggleExpanding.bind(this))}
                 </Animated.View>
+            );
+        } else if (AnimatedReplaceCell.isAnimatedReplaceCell(dataCell)) {
+            let currentCell = dataCell.getCurrentCell();
+            let replaceCell = dataCell.getReplaceCell();
+            let currentComponent, replaceComponent;
+
+            if (DataCell.isDataCell(currentCell) || AnimatedDataCell.isAnimatedDataCell(currentCell)) {
+                currentComponent = (
+                    <Animated.View style = {{
+                        opacity: dataCell.getCurrentAnimatedValue()
+                    }}>
+                        {renderCell(dataIndex)}
+                    </Animated.View>
+                );
+            } else if (ExpandCell.isExpandCell(currentCell) || AnimatedExpandCell.isAnimatedExpandCell(currentCell)) {
+                // 注意!isExpanding的写法，特别脏！！！要注意。
+                currentComponent = (
+                    <Animated.View style = {{
+                        opacity: dataCell.getCurrentAnimatedValue()
+                    }}>
+                        {renderExpandCell(!isExpanding, this._toggleExpanding.bind(this))}
+                    </Animated.View>
+                );
+            } else {
+                throw new Error('error current cell type');
+            }
+
+            if (DataCell.isDataCell(replaceCell) || AnimatedDataCell.isAnimatedDataCell(replaceCell)) {
+                replaceComponent = (
+                    <Animated.View style = {{
+                        opacity: dataCell.getReplaceAnimatedValue(),
+                        position: 'absolute',
+                        left: 0,
+                        right: 0,
+                        top: 0,
+                        bottom: 0
+                    }}>
+                        {renderCell(dataIndex)}
+                    </Animated.View>
+                );
+            } else if (ExpandCell.isExpandCell(replaceCell) || AnimatedExpandCell.isAnimatedExpandCell(replaceCell)) {
+                replaceComponent = (
+                    <Animated.View style = {{
+                        opacity: dataCell.getReplaceAnimatedValue(),
+                        position: 'absolute',
+                        left: 0,
+                        right: 0,
+                        top: 0,
+                        bottom: 0
+                    }}>
+                        {renderExpandCell(isExpanding, this._toggleExpanding.bind(this))}
+                    </Animated.View>
+                );
+            } else {
+                throw new Error('error current cell type');
+            }
+
+            cellComponent = (
+                <View>
+                    {currentComponent}
+                    {replaceComponent}
+                </View>
             );
         } else {
             throw new Error('unknown cell type');

@@ -17,13 +17,13 @@ class AnimatedCell {
     _duration: number;
     _animatedValue: any;
 
-    constructor (display: bool, duration: number = 200) {
+    constructor (display: bool, duration: number = 100) {
         this._display = display;
         this._duration = duration;
-        this._setAnimationValue();
+        this._setAnimatedValue();
     }
 
-    _setAnimationValue () {
+    _setAnimatedValue () {
         if (this._display) {
             this._animatedValue = new Animated.Value(1);
         } else {
@@ -31,7 +31,7 @@ class AnimatedCell {
         }
     }
 
-    getAnimationValue () {
+    getAnimatedValue () {
         return this._animatedValue;
     }
 
@@ -61,6 +61,58 @@ class AnimatedExpandCell extends AnimatedCell {
     }
 }
 
+class AnimatedReplaceCell extends AnimatedCell {
+    _currentAnimatedValue: any;
+    _replaceAnimatedValue: any;
+    _currentCell: CellType;
+    _replaceCell: CellType;
+
+    constructor (currentCell: CellType, replaceCell: CellType, duration: number = 100) {
+        super(false, duration);
+
+        this._currentCell = currentCell;
+        this._replaceCell = replaceCell;
+    }
+
+    _setAnimatedValue () {
+        this._currentAnimatedValue = new Animated.Value(1);
+        this._replaceAnimatedValue = new Animated.Value(0);
+    }
+
+    getCurrentAnimatedValue () {
+        return this._currentAnimatedValue;
+    }
+
+    getReplaceAnimatedValue () {
+        return this._replaceAnimatedValue;
+    }
+
+    getCurrentCell (): CellType {
+        return this._currentCell;
+    }
+
+    getReplaceCell (): CellType {
+        return this._replaceCell;
+    }
+
+    animate (onFinish: () => void) {
+        Animated.parallel([
+            Animated.timing(this._currentAnimatedValue, {
+                toValue: 0,
+                duration: this._duration
+            }),
+            Animated.timing(this._replaceAnimatedValue, {
+                toValue: 1,
+                duration: this._duration
+            })
+        ]).start(onFinish);
+    }
+
+    static isAnimatedReplaceCell (cell): bool {
+        return cell instanceof AnimatedReplaceCell;
+    }
+}
+
 class ExpandCell {
     constructor () {}
 
@@ -77,7 +129,7 @@ class EmptyCell {
     }
 }
 
-export type CellType = DataCell | ExpandCell | EmptyCell | AnimatedDataCell | AnimatedExpandCell;
+export type CellType = DataCell | ExpandCell | EmptyCell | AnimatedDataCell | AnimatedExpandCell | AnimatedReplaceCell;
 export type AnimatedCellType = AnimatedDataCell | AnimatedExpandCell;
 
 export {
@@ -85,5 +137,6 @@ export {
     ExpandCell,
     EmptyCell,
     AnimatedDataCell,
-    AnimatedExpandCell
+    AnimatedExpandCell,
+    AnimatedReplaceCell
 };
