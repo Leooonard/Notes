@@ -11,6 +11,7 @@ const ACTION_TYPE = {
     ANIMATE_REPLACE_CELL: 'animate_replace_cell', // 使用动画替换单元格
     PRE_REMOVE_ROW: 'pre_remove_row', // 将行内元素变为动画元素，准备隐藏后删除
     REMOVE_ROW: 'remove_row', // 删除行
+    REFRESH_RENDER_TABLE: 'refresh_render_table', // 刷新一次renderTable，让AnimatedDataCell重新变回DataCell。
 };
 
 class Action {
@@ -68,6 +69,10 @@ class Action {
 
      static generateReplaceFinishAction (payload: any): Action {
          return new Action(ACTION_TYPE.REPLACE_CELL_FINISH, payload);
+     }
+
+     static generateRefreshRenderTableAction (): Action {
+         return new Action(ACTION_TYPE.REFRESH_RENDER_TABLE);
      }
 }
 

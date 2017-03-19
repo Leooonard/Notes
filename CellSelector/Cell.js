@@ -7,6 +7,10 @@ import {
 class DataCell {
     constructor () {}
 
+    getType () {
+        return 'DATA_CELL';
+    }
+
     static isDataCell (cell): bool {
         return cell instanceof DataCell;
     }
@@ -17,10 +21,14 @@ class AnimatedCell {
     _duration: number;
     _animatedValue: any;
 
-    constructor (display: bool, duration: number = 500) {
+    constructor (display: bool, duration: number = 250) {
         this._display = display;
         this._duration = duration;
         this._setAnimatedValue();
+    }
+
+    getType () {
+        return 'ANIMATED_CELL';
     }
 
     _setAnimatedValue () {
@@ -50,12 +58,20 @@ class AnimatedCell {
 }
 
 class AnimatedDataCell extends AnimatedCell {
+    getType () {
+        return 'ANIMATED_DATA_CELL';
+    }
+
     static isAnimatedDataCell (cell): bool {
         return cell instanceof AnimatedDataCell;
     }
 }
 
 class AnimatedExpandCell extends AnimatedCell {
+    getType () {
+        return 'ANIMATED_EXPAND_CELL';
+    }
+
     static isAnimatedExpandCell (cell): bool {
         return cell instanceof AnimatedExpandCell;
     }
@@ -67,11 +83,15 @@ class AnimatedReplaceCell extends AnimatedCell {
     _currentCell: CellType;
     _replaceCell: CellType;
 
-    constructor (currentCell: CellType, replaceCell: CellType, duration: number = 500) {
+    constructor (currentCell: CellType, replaceCell: CellType, duration: number = 250) {
         super(false, duration);
 
         this._currentCell = currentCell;
         this._replaceCell = replaceCell;
+    }
+
+    getType () {
+        return 'ANIMATED_REPLACE_CELL';
     }
 
     _setAnimatedValue () {
@@ -116,6 +136,10 @@ class AnimatedReplaceCell extends AnimatedCell {
 class ExpandCell {
     constructor () {}
 
+    getType () {
+        return 'EXPAND_CELL';
+    }
+
     static isExpandCell (cell): bool {
         return cell instanceof ExpandCell;
     }
@@ -123,6 +147,10 @@ class ExpandCell {
 
 class EmptyCell {
     constructor () {}
+
+    getType () {
+        return 'EMPTY_CELL';
+    }
 
     static isEmptyCell (cell): bool {
         return cell instanceof EmptyCell;

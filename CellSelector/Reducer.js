@@ -79,6 +79,10 @@ class Reducer {
                     payload = nextAction.getPayload();
                     this._renderTable.replaceCellFinish(payload.rowIndex, payload.columnIndex, resolve);
                 });
+            case ACTION_TYPE.REFRESH_RENDER_TABLE:
+                return new Promise(resolve => {
+                    this._renderTable.refresh(resolve);
+                });
             default:
                 throw new Error('unknown action type');
         }

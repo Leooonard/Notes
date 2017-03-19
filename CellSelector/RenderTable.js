@@ -37,7 +37,7 @@ class RenderTable {
         this._maxRowForBrief = maxRowForBrief;
         this._updateView = updateView;
 
-        this._generateRenderTable();
+        this._renderTable = this.generateRenderTable(this._isExpanding);
     }
 
     getMaxRowForBrief () {
@@ -77,16 +77,15 @@ class RenderTable {
         return this._renderTable;
     }
 
-    _generateRenderRow (rowIndex: number, _isAnimated: ?bool, _isShow: ?bool): Array<CellType> {
-        // 不这么写，flow会认为isAnimated类型为？bool，之后的代码如果用到的是bool，就会报错。
-        let isAnimated = _isAnimated || false;
-        let isShow = _isShow || false;
+    _generateRenderRow (rowIndex: number, isAnimated: ?bool, isShow: ?bool, isExpanding: ?bool): Array<CellType> {
+        isAnimated = isAnimated || false;
+        isShow = isShow || false;
+        isExpanding = isExpanding || false;
 
         let isLastRow = (rowIndex, twoDimArray) => rowIndex === twoDimArray.length - 1;
         let isListLongEnough = (array, targetLength) => array.length === targetLength;
         let dataTable = this._dataTable.getTable();
         let needPackup = this._needPackup;
-        let isExpanding = this._isExpanding;
         let dataRow = dataTable[rowIndex];
         let tableWidth = this._dataTable.getTableWidth();
 
@@ -136,13 +135,12 @@ class RenderTable {
         }
     }
 
-    _needAppendRowForExpandCell (): bool {
+    _needAppendRowForExpandCell (isExpanding: bool): bool {
         let isListLongEnough = (array, targetLength) => array.length === targetLength;
         let dataTable = this._dataTable.getTable();
         let lastDataRow = dataTable[dataTable.length - 1];
         let tableWidth = this._dataTable.getTableWidth();
         let needPackup = this._needPackup;
-        let isExpanding = this._isExpanding;
 
         if (needPackup && isExpanding) {
             if (isListLongEnough(lastDataRow, tableWidth)) {
@@ -170,9 +168,8 @@ class RenderTable {
         return this._paddingRowWithEmptyCell(row, tableWidth);
     }
 
-    _shouldGenerateRow (rowIndex: number): bool {
+    _shouldGenerateRow (isExpanding: bool, rowIndex: number): bool {
         let needPackup = this._needPackup;
-        let isExpanding = this._isExpanding;
         let maxRowForBrief = this._maxRowForBrief;
 
         if (needPackup && !isExpanding && rowIndex >= maxRowForBrief) {
@@ -183,22 +180,27 @@ class RenderTable {
     }
 
     // 根据dataTable完整生成renderTable。
-    _generateRenderTable () {
+    generateRenderTable (isExpanding: bool) {
         let rowList: Array<Array<CellType>> = [];
         let dataTable: Array<Array<any>> = this._dataTable.getTable();
 
         dataTable.forEach((dataRow, rowIndex) => {
-            if (this._shouldGenerateRow(rowIndex)) {
-                let renderRow = this._generateRenderRow(rowIndex);
+            if (this._shouldGenerateRow(isExpanding, rowIndex)) {
+                let renderRow = this._generateRenderRow(rowIndex, false, true, isExpanding);
                 rowList.push(renderRow);
             }
         });
 
-        if (this._needAppendRowForExpandCell()) {
+        if (this._needAppendRowForExpandCell(isExpanding)) {
             rowList.push(this._generateRowForExpandCell());
         }
 
-        this._renderTable = rowList;
+        return rowList;
+    }
+
+    refresh (next: () => void) {
+        this._renderTable = this.generateRenderTable(this._isExpanding);
+        this._updateView().then(next);
     }
 
     replaceCell (rowIndex: number, columnIndex: number, next: () => void) {
@@ -237,7 +239,7 @@ class RenderTable {
         let renderRow;
 
         if (equalTableLength) {
-            if (this._needAppendRowForExpandCell()) {
+            if (this._needAppendRowForExpandCell(this._isExpanding)) {
                 renderRow = this._generateRowForExpandCell(true, false);
             } else {
                 throw new Error('there is no render row to append');

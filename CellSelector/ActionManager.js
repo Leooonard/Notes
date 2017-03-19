@@ -21,7 +21,8 @@ import {
     DataCell,
     AnimatedDataCell,
     ExpandCell,
-    AnimatedExpandCell
+    AnimatedExpandCell,
+    EmptyCell
 } from './Cell';
 
 class ActionManager {
@@ -38,11 +39,11 @@ class ActionManager {
     dispatchUserAction (userAction: ActionType, actionListGenerateFinish: () => void) {
         switch (userAction.getType()) {
             case ACTION_TYPE.USER_EXPAND_TABLE:
-                this._generateExpandActionList();
+                this._generateUserExpandActionList(true);
                 actionListGenerateFinish();
                 break;
             case ACTION_TYPE.USER_PACKUP_TABLE:
-                this._generatePackupActionList();
+                this._generateUserPackupActionList(false);
                 actionListGenerateFinish();
                 break;
             default:
@@ -50,135 +51,122 @@ class ActionManager {
         }
     }
 
-    // 用户点击展开按钮后生成对应的actionList
-    _generateExpandActionList () {
-        let {
-            rowIndex,
-            columnIndex
-        } = this._renderTable.getExpandCellTwoDimCoord();
+    // 展开或收起时，生成actionList。
+    _generateActionList (isExpandAction: bool) {
+        if (isExpandAction) {
+            this._generateUserExpandActionList();
+        } else {
+            this._generateUserPackupActionList();
+        }
+    }
 
-        this._actionList.push(Action.generateReplaceAction({
-            rowIndex,
-            columnIndex
-        }));
-        this._actionList.push(Action.generateAnimateReplaceAction({
-            rowIndex,
-            columnIndex
-        }));
-        this._actionList.push(Action.generateReplaceFinishAction({
-            rowIndex,
-            columnIndex
-        }));
-
-        let renderTable = this._renderTable.getTable();
-        let renderTableRowCount = renderTable.length;
-        let dataTable = this._dataTable.getTable();
-        let dataTableRowCount = dataTable.length;
+    _generateUserExpandActionList () {
+        // 展开操作，currentRenderTableRowCount < targetRenderTableRowCount。
+        let currentRenderTable = this._renderTable.getTable();
+        let targetRenderTable = this._renderTable.generateRenderTable(true);
         let tableWidth = this._dataTable.getTableWidth();
+
         let showActionList = [];
 
-        let isLastRow = (currentRowIndex: number, totalRowCount: number) => currentRowIndex === totalRowCount - 1;
-        let getLastItem = array => array[array.length - 1];
+        for (let i = 0 ; i < targetRenderTable.length ; i++) {
+            let targetRenderRow = targetRenderTable[i];
+            let currentRenderRow = currentRenderTable[i]; // 有可能为空。
 
-        while (renderTableRowCount < dataTableRowCount) {
-            let currentRowIndex = renderTableRowCount;
-            this._actionList.push(Action.generateAppendRowAction());
+            if (currentRenderRow && targetRenderRow) {
+                for (let j = 0 ; j < tableWidth ; j++) {
+                    let currentRenderCell = currentRenderRow[j];
+                    let targetRenderCell = targetRenderRow[j];
 
-            if (isLastRow(renderTableRowCount, dataTableRowCount)) {
-                let lastDataRow = getLastItem(dataTable);
-                let lastDataRowLongEnough = lastDataRow.length === tableWidth;
-
-                if (lastDataRowLongEnough) {
-                    for (let i = 0 ; i < tableWidth ; i++) {
-                        showActionList.push(Action.generateShowAction({
-                            rowIndex: currentRowIndex,
-                            columnIndex: i
-                        }));
+                    if (currentRenderCell.getType() !== targetRenderCell.getType()) {
+                        this._generateReplaceAction(this._actionList, i, j);
                     }
-                    this._actionList.push(Action.generateAppendRowAction());
-                    showActionList.push(Action.generateShowAction({
-                        rowIndex: currentRowIndex + 1,
-                        columnIndex: 0
-                    }))
-                } else {
-                    for (let i = 0 ; i < lastDataRow.length ; i++) {
-                        showActionList.push(Action.generateShowAction({
-                            rowIndex: currentRowIndex,
-                            columnIndex: i
-                        }));
-                    }
-
-                    showActionList.push(Action.generateShowAction({
-                        rowIndex: currentRowIndex,
-                        columnIndex: lastDataRow.length
-                    }));
                 }
             } else {
-                for (let i = 0 ; i < tableWidth ; i++) {
-                    showActionList.push(Action.generateShowAction({
-                        rowIndex: currentRowIndex,
-                        columnIndex: i
-                    }));
+                this._actionList.push(Action.generateAppendRowAction());
+
+                for (let j = 0 ; j < tableWidth ; j++) {
+                    let targetRenderCell = targetRenderRow[j];
+
+                    if (!EmptyCell.isEmptyCell(targetRenderCell)) {
+                        showActionList.push(Action.generateShowAction({
+                            rowIndex: i,
+                            columnIndex: j
+                        }));
+                    }
                 }
             }
-
-            renderTableRowCount++;
         }
 
         this._actionList.push(showActionList);
+        this._actionList.push(Action.generateRefreshRenderTableAction());
     }
 
-    // 用户点击收起按钮后生成对应的actionList
-    _generatePackupActionList () {
-        let renderTable = this._renderTable.getTable();
-        let renderTableRowCount = renderTable.length;
-        let maxRowForBrief = this._renderTable.getMaxRowForBrief();
+    _generateUserPackupActionList () {
+        let currentRenderTable = this._renderTable.getTable();
+        let targetRenderTable = this._renderTable.generateRenderTable(false);
         let tableWidth = this._dataTable.getTableWidth();
+        let preRemoveRowActionList = [];
+        let removeRowActionList = [];
         let actionHideList = [];
-        let actionPreRemoveRowList = [];
-        let actionRemoveRowList = [];
+        let replaceActionList = [];
 
-        while (renderTableRowCount > maxRowForBrief) {
-            let currentRowIndex = renderTableRowCount - 1;
-            let renderRow = renderTable[currentRowIndex];
-            let renderRowLength = renderRow.length;
+        for (let i = targetRenderTable.length - 1 ; i > -1 ; i--) {
+            let targetRenderRow = targetRenderTable[i];
+            let currentRenderRow = currentRenderTable[i];
 
-            actionPreRemoveRowList.push(Action.generatePreRemoveRowAction({
-                rowIndex: currentRowIndex
-            }));
-            for (let i = renderRowLength - 1 ; i >= 0 ; i--) {
-                let cell = renderTable[currentRowIndex][i];
+            if (currentRenderRow && targetRenderRow) {
+                for (let j = tableWidth - 1 ; j > -1 ; j--) {
+                    let currentRenderCell = currentRenderRow[j];
+                    let targetRenderCell = targetRenderRow[j];
 
-                if (DataCell.isDataCell(cell) || AnimatedDataCell.isAnimatedDataCell(cell) ||
-                    ExpandCell.isExpandCell(cell) || AnimatedExpandCell.isAnimatedExpandCell(cell)) {
-
-                    actionHideList.push(Action.generateHideAction({
-                        rowIndex: currentRowIndex,
-                        columnIndex: i
-                    }));
+                    if (currentRenderCell.getType() !== targetRenderCell.getType()) {
+                        this._generateReplaceAction(replaceActionList, i, j);
+                    }
                 }
-            }
-            actionRemoveRowList.push(Action.generateRemoveRowAction());
+            } else {
+                preRemoveRowActionList.push(Action.generatePreRemoveRowAction({
+                    rowIndex: i
+                }));
 
-            renderTableRowCount--;
+                for (let j = tableWidth - 1 ; j > -1 ; j--) {
+                    let renderCell = targetRenderRow[j];
+
+                    if (!EmptyCell.isEmptyCell(renderCell)) {
+                        actionHideList.push(Action.generateHideAction({
+                            rowIndex: i,
+                            columnIndex: j
+                        }));
+                    }
+                }
+
+                removeRowActionList.push(Action.generateRemoveRowAction());
+            }
         }
 
-        this._actionList = this._actionList.concat(actionPreRemoveRowList);
+        this._actionList = this._actionList.concat(preRemoveRowActionList);
         this._actionList.push(actionHideList);
-        this._actionList = this._actionList.concat(actionRemoveRowList);
+        this._actionList = this._actionList.concat(removeRowActionList);
+        this._actionList.push(replaceActionList);
+        this._actionList.push(Action.generateRefreshRenderTableAction());
+    }
 
-        this._actionList.push(Action.generateReplaceAction({
-            rowIndex: maxRowForBrief - 1,
-            columnIndex: tableWidth - 1
+    _generateReplaceAction (actionList: Array<ActionType>, rowIndex: number, columnIndex: number) {
+        actionList.push(Action.generateReplaceAction({
+            rowIndex,
+            columnIndex
         }));
-        this._actionList.push(Action.generateAnimateReplaceAction({
-            rowIndex: maxRowForBrief - 1,
-            columnIndex: tableWidth - 1
+        actionList.push(Action.generateAnimateReplaceAction({
+            rowIndex,
+            columnIndex
         }));
-        this._actionList.push(Action.generateReplaceFinishAction({
-            rowIndex: maxRowForBrief - 1,
-            columnIndex: tableWidth - 1
+        actionList.push(Action.generateReplaceFinishAction({
+            rowIndex,
+            columnIndex
         }));
+    }
+
+    _generateRemoveAction () {
+
     }
 
     // 使用者更新数据后生成对应的actionList
