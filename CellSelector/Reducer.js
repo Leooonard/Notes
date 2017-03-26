@@ -22,18 +22,22 @@ type ReducerType = Reducer;
 class Reducer {
     _actionManager: ActionManagerType;
     _renderTable: RenderTableType;
+    _viewTable: any;
+    _canReduce: bool;
     _reduceFinish: () => void;
 
-    constructor (actionManager: ActionManagerType, renderTable: RenderTableType, reduceFinish: () => void) {
+    constructor (actionManager: ActionManagerType, renderTable: RenderTableType, viewTable, reduceFinish: () => void) {
         this._actionManager = actionManager;
         this._renderTable = renderTable;
+        this._viewTable = viewTable;
         this._reduceFinish = reduceFinish;
+        this._canReduce = true;
     }
 
     startReduceAction () {
         let nextAction = this._actionManager.getAction();
 
-        if (nextAction === null) {
+        if (nextAction === null || !this._canReduce) {
             this._reduceFinish();
             return;
         }
@@ -43,6 +47,10 @@ class Reducer {
         } else {
             this._reduce(nextAction).then(this.startReduceAction.bind(this));
         }
+    }
+
+    stopReduce () {
+        this._canReduce = false;
     }
 
     _reduce (nextAction: Action): Promise<any> {
@@ -82,6 +90,14 @@ class Reducer {
             case ACTION_TYPE.REFRESH_RENDER_TABLE:
                 return new Promise(resolve => {
                     this._renderTable.refresh(resolve);
+                });
+            case ACTION_TYPE.HIDE_TABLE:
+                return new Promise(resolve => {
+                    this._viewTable.hideTable(resolve);
+                });
+            case ACTION_TYPE.SHOW_TABLE:
+                return new Promise(resolve => {
+                    this._viewTable.showTable(resolve);
                 });
             default:
                 throw new Error('unknown action type');

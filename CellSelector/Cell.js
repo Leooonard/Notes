@@ -5,7 +5,21 @@ import {
 } from 'react-native';
 
 class DataCell {
-    constructor () {}
+    _rowIndex: number;
+    _columnIndex: number;
+
+    constructor (rowIndex: number, columnIndex: number) {
+        this._rowIndex = rowIndex;
+        this._columnIndex = columnIndex;
+    }
+
+    getRowIndex (): number {
+        return this._rowIndex;
+    }
+
+    getColumnIndex (): number {
+        return this._columnIndex;
+    }
 
     getType () {
         return 'DATA_CELL';
@@ -21,9 +35,9 @@ class AnimatedCell {
     _duration: number;
     _animatedValue: any;
 
-    constructor (display: bool, duration: number = 250) {
+    constructor (display: bool) {
         this._display = display;
-        this._duration = duration;
+        this._duration = 250;
         this._setAnimatedValue();
     }
 
@@ -58,6 +72,18 @@ class AnimatedCell {
 }
 
 class AnimatedDataCell extends AnimatedCell {
+    _dataCell: DataCell;
+
+    constructor (display: bool, dataCell: CellType) {
+        super(display);
+
+        this._dataCell = dataCell;
+    }
+
+    getDataCell (): DataCell {
+        return this._dataCell;
+    }
+
     getType () {
         return 'ANIMATED_DATA_CELL';
     }
@@ -68,6 +94,18 @@ class AnimatedDataCell extends AnimatedCell {
 }
 
 class AnimatedExpandCell extends AnimatedCell {
+    _expandCell: ExpandCell;
+
+    constructor (display: bool, expandCell: CellType) {
+        super(display);
+
+        this._expandCell = expandCell;
+    }
+
+    getExpandCell (): ExpandCell {
+        return this._expandCell;
+    }
+
     getType () {
         return 'ANIMATED_EXPAND_CELL';
     }
@@ -134,7 +172,15 @@ class AnimatedReplaceCell extends AnimatedCell {
 }
 
 class ExpandCell {
-    constructor () {}
+    _isExpanding: bool;
+
+    constructor (isExpanding: bool) {
+        this._isExpanding = isExpanding;
+    }
+
+    getIsExpanding (): bool {
+        return this._isExpanding;
+    }
 
     getType () {
         return 'EXPAND_CELL';

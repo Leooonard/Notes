@@ -3,6 +3,7 @@
 const ACTION_TYPE = {
     USER_EXPAND_TABLE: 'user_expand_table', // 用户展开了表格
     USER_PACKUP_TABLE: 'user_packup_table', // 用户收起了表格
+    USER_REPLACE_TABLE: 'user_replace_table', // 用户更改了表格内容
     REPLACE_CELL: 'replace_cell', // 生成替换单元格
     REPLACE_CELL_FINISH: 'replace_cell_finish', // 将单元格替换成replaceCell。
     SHOW_CELL: 'show_cell', // 展示单元格
@@ -12,6 +13,8 @@ const ACTION_TYPE = {
     PRE_REMOVE_ROW: 'pre_remove_row', // 将行内元素变为动画元素，准备隐藏后删除
     REMOVE_ROW: 'remove_row', // 删除行
     REFRESH_RENDER_TABLE: 'refresh_render_table', // 刷新一次renderTable，让AnimatedDataCell重新变回DataCell。
+    HIDE_TABLE: 'hide_table', // 隐藏table。
+    SHOW_TABLE: 'show_table', // 显示table。
 };
 
 class Action {
@@ -73,6 +76,18 @@ class Action {
 
      static generateRefreshRenderTableAction (): Action {
          return new Action(ACTION_TYPE.REFRESH_RENDER_TABLE);
+     }
+
+     static generateUserReplaceTableAction (): Action {
+         return new Action(ACTION_TYPE.USER_REPLACE_TABLE);
+     }
+
+     static generateHideTableAction (): Action {
+         return new Action(ACTION_TYPE.HIDE_TABLE);
+     }
+
+     static generateShowTableAction (): Action {
+         return new Action(ACTION_TYPE.SHOW_TABLE);
      }
 }
 

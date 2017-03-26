@@ -8,7 +8,6 @@ import React, {
 
 import {
     StyleSheet,
-    TouchableOpacity,
     View,
     Animated
 } from "react-native";
@@ -76,7 +75,7 @@ import {
 } from './Reducer';
 
 type RenderCellFunction = (index: number) => ReactClass<any>;
-type RenderExpandCellFunction = (isExpanding: bool) => ReactClass<any>;
+type RenderExpandCellFunction = (isExpanding: bool, toggleExpanding: () => void) => ReactClass<any>;
 
 type Props = {
     dataArray: Array<any>, // Cell的数据源。
@@ -103,33 +102,84 @@ class CellSelector extends Component {
     _reducer: ReducerType;
     _isExpanding: bool;
     _isAnimating: bool;
+    _canAnimate: bool;
+    _animateDuration: number;
+    _tableOpacityValue: any;
+    _initProps: Object;
 
     constructor (props: Props) {
         super(props);
 
+        this._init(props);
+        this._tableOpacityValue = new Animated.Value(1);
+
+        this.state = {
+            renderTable: this._renderTable.getTable()
+        };
+    }
+
+    _init (props) {
+        this._initProps = {
+            ...props
+        };
+
         let {
-            defaultExpand,
-            canPackup,
+            dataArray,
             tableWidth,
             maxRowForBrief,
-            dataArray
+            renderCell,
+            canPackup,
+            defaultExpand,
+            renderExpandCell,
+            canAnimate,
+            animateDuration
         } = props;
+
+        if (!Array.isArray(dataArray)) {
+            throw new Error('CellSelector must have a dataArray in array type');
+        } else if (typeof renderCell !== 'function') {
+            throw new Error('CellSelector must have a renderCell function as param');
+        } else if (canPackup && typeof renderExpandCell !== 'function') {
+            throw new Error('CellSelector must have a renderExpandCell function as param');
+        }
 
         defaultExpand = defaultExpand || false;
         canPackup = canPackup || false;
+        tableWidth = tableWidth || 1;
+        maxRowForBrief = maxRowForBrief || 3;
+        canAnimate = canAnimate || false;
+        animateDuration = animateDuration || 500;
 
         this._needPackup = this._decideNeedPackup(canPackup, dataArray, tableWidth, maxRowForBrief);
         this._dataTable = new DataTable(dataArray, tableWidth);
         this._renderTable = new RenderTable(this._dataTable, this._needPackup, defaultExpand,
                                             maxRowForBrief, this.renderTablePromisely.bind(this));
         this._actionManager = new ActionManager(this._renderTable, this._dataTable);
-        this._reducer = new Reducer(this._actionManager, this._renderTable, this._stopAnimating.bind(this));
+        this._reducer = new Reducer(this._actionManager, this._renderTable, {
+            hideTable: this._hideTable.bind(this),
+            showTable: this._showTable.bind(this)
+        }, this._stopAnimating.bind(this));
 
         this._isExpanding = defaultExpand;
+        this._canAnimate = canAnimate;
+        this._animateDuration = animateDuration;
         this._isAnimating = false;
-        this.state = {
-            renderTable: this._renderTable.getTable()
-        };
+    }
+
+    updateCellSelector (nextProps) {
+        nextProps = Object.assign({}, this._initProps, nextProps);
+        this._reducer.stopReduce();
+
+        this._init(nextProps);
+
+        if (this._canAnimate) {
+            this._actionManager.dispatchUserAction(Action.generateUserReplaceTableAction(),
+                                                    () => this._reducer.startReduceAction());
+        } else {
+            this.setState({
+                renderTable: this._renderTable.getTable()
+            });
+        }
     }
 
     _decideNeedPackup (canPackup: bool, dataArray: Array<any>, tableWidth: number, maxRowForBrief: number) {
@@ -137,20 +187,24 @@ class CellSelector extends Component {
     }
 
     _toggleExpanding () {
-        let {
-            canAnimate
-        } = this.props;
-
         this._isExpanding = !this._isExpanding;
-        this._isAnimating = true;
-        this._renderTable.setIsExpanding(this._isExpanding)
+        this._renderTable.setIsExpanding(this._isExpanding);
 
-        if (this._isExpanding) {
-            this._actionManager.dispatchUserAction(Action.generateUserExpandTableAction(),
-                                                    () => this._reducer.startReduceAction());
+        if (this._canAnimate) {
+            this._isAnimating = true;
+
+            if (this._isExpanding) {
+                this._actionManager.dispatchUserAction(Action.generateUserExpandTableAction(),
+                                                        () => this._reducer.startReduceAction());
+            } else {
+                this._actionManager.dispatchUserAction(Action.generateUserPackupTableAction(),
+                                                        () => this._reducer.startReduceAction());
+            }
         } else {
-            this._actionManager.dispatchUserAction(Action.generateUserPackupTableAction(),
-                                                    () => this._reducer.startReduceAction());
+            this._renderTable.updateTable();
+            this.setState({
+                renderTable: this._renderTable.getTable()
+            });
         }
     }
 
@@ -168,146 +222,174 @@ class CellSelector extends Component {
 
     _renderEmptyCell () {
         return (
-            <View></View>
+            <View style = {styles.cell}></View>
         );
     }
 
-    _drawCell (dataCell: CellType, dataIndex: number): ReactClass<any> {
+    _renderExpandCell (expandCell: CellType) {
         let {
-            renderCell,
             renderExpandCell
         } = this.props;
 
-        let isExpanding = this._isExpanding;
-
-        let cellComponent;
-        let self = this;
-
-        if (ExpandCell.isExpandCell(dataCell)) {
-            cellComponent = renderExpandCell(isExpanding, this._toggleExpanding.bind(this));
-        } else if (EmptyCell.isEmptyCell(dataCell)) {
-            cellComponent = this._renderEmptyCell();
-        } else if (DataCell.isDataCell(dataCell)) {
-            cellComponent = renderCell(dataIndex);
-        } else if (AnimatedDataCell.isAnimatedDataCell(dataCell)) {
-            cellComponent = (
-                <Animated.View style = {{
-                    opacity: dataCell.getAnimatedValue()
-                }}>
-                    {renderCell(dataIndex)}
-                </Animated.View>
-            );
-        } else if (AnimatedExpandCell.isAnimatedExpandCell(dataCell)) {
-            cellComponent = (
-                <Animated.View style = {{
-                    opacity: dataCell.getAnimatedValue()
-                }}>
-                    {
-                        renderExpandCell(true, self._toggleExpanding.bind(self))
-                    }
-                </Animated.View>
-            );
-        } else if (AnimatedReplaceCell.isAnimatedReplaceCell(dataCell)) {
-            let currentCell = dataCell.getCurrentCell();
-            let replaceCell = dataCell.getReplaceCell();
-            let currentComponent, replaceComponent;
-
-            if (DataCell.isDataCell(currentCell) || AnimatedDataCell.isAnimatedDataCell(currentCell)) {
-                currentComponent = (
-                    <Animated.View style = {{
-                        opacity: dataCell.getCurrentAnimatedValue()
-                    }}>
-                        {renderCell(dataIndex)}
-                    </Animated.View>
-                );
-            } else if (ExpandCell.isExpandCell(currentCell) || AnimatedExpandCell.isAnimatedExpandCell(currentCell)) {
-                // 注意!isExpanding的写法，特别脏！！！要注意。
-                currentComponent = (
-                    <Animated.View style = {{
-                        opacity: dataCell.getCurrentAnimatedValue()
-                    }}>
-                        {
-                            renderExpandCell(!isExpanding, self._toggleExpanding.bind(self))
-                        }
-                    </Animated.View>
-                );
-            } else {
-                throw new Error('error current cell type');
-            }
-
-            if (DataCell.isDataCell(replaceCell) || AnimatedDataCell.isAnimatedDataCell(replaceCell)) {
-                replaceComponent = (
-                    <Animated.View style = {{
-                        opacity: dataCell.getReplaceAnimatedValue(),
-                        position: 'absolute',
-                        left: 0,
-                        right: 0,
-                        top: 0,
-                        bottom: 0
-                    }}>
-                        {renderCell(dataIndex)}
-                    </Animated.View>
-                );
-            } else if (ExpandCell.isExpandCell(replaceCell) || AnimatedExpandCell.isAnimatedExpandCell(replaceCell)) {
-                replaceComponent = (
-                    <Animated.View style = {{
-                        opacity: dataCell.getReplaceAnimatedValue(),
-                        position: 'absolute',
-                        left: 0,
-                        right: 0,
-                        top: 0,
-                        bottom: 0
-                    }}>
-                        {
-                            renderExpandCell(isExpanding, self._toggleExpanding.bind(self))
-                        }
-                    </Animated.View>
-                );
-            } else {
-                throw new Error('error current cell type');
-            }
-
-            cellComponent = (
-                <View>
-                    {currentComponent}
-                    {replaceComponent}
-                </View>
-            );
-        } else {
-            throw new Error('unknown cell type');
-        }
-
         return (
-            <View style = {{flex: 1}}>
-                {cellComponent}
+            <View style = {styles.cell}>
+                {renderExpandCell(expandCell.getIsExpanding(), this._toggleExpanding.bind(this))}
             </View>
         );
     }
 
-    _drawRow (dataRow: Array<CellType>, rowIndex: number): ReactClass<any> {
-        let cellList = [];
+    _renderDataCell (dataCell: CellType) {
         let {
-            tableWidth
+            renderCell
         } = this.props;
 
-        dataRow.forEach((dataCell, columnIndex) => {
-            let dataIndex = this._dataTable.transformTwoDimCoordToOneDimCoord(rowIndex, columnIndex);
-            let cell = this._drawCell(dataCell, dataIndex);
+        return (
+            <View style = {styles.cell}>
+                {
+                    renderCell(this._dataTable.transformTwoDimCoordToOneDimCoord(dataCell.getRowIndex(),
+                                                                                dataCell.getColumnIndex()))
+                }
+            </View>
+        );
+    }
+
+    _renderAnimatedDataCell (animatedValue: any, animatedDataCell: CellType) {
+        let {
+            renderCell
+        } = this.props;
+
+        return (
+            <Animated.View style = {[styles.cell, {
+                opacity: animatedValue
+            }]}>
+                {
+                    renderCell(this._dataTable.transformTwoDimCoordToOneDimCoord(animatedDataCell.getDataCell().getRowIndex(),
+                                                                                animatedDataCell.getDataCell().getColumnIndex()))
+                }
+            </Animated.View>
+        );
+    }
+
+    _renderAnimatedExpandCell (animatedValue: any, animatedExpandCell: CellType) {
+        let {
+            renderExpandCell
+        } = this.props;
+
+        return (
+            <Animated.View style = {[styles.cell, {
+                opacity: animatedValue
+            }]}>
+                {renderExpandCell(animatedExpandCell.getExpandCell().getIsExpanding(), this._toggleExpanding.bind(this))}
+            </Animated.View>
+        )
+    }
+
+    _renderAnimatedReplaceCell (animatedReplaceCell: CellType) {
+        let currentCell = animatedReplaceCell.getCurrentCell();
+        let replaceCell = animatedReplaceCell.getReplaceCell();
+        let currentComponent, replaceComponent;
+
+        if (DataCell.isDataCell(currentCell)) {
+            currentComponent = this._renderAnimatedDataCell(animatedReplaceCell.getCurrentAnimatedValue(),
+                                                            new AnimatedDataCell(true, currentCell));
+
+        } else if (AnimatedDataCell.isAnimatedDataCell(currentCell)) {
+            currentComponent = this._renderAnimatedDataCell(animatedReplaceCell.getCurrentAnimatedValue(), currentCell);
+
+        } else if (ExpandCell.isExpandCell(currentCell)) {
+            currentComponent = this._renderAnimatedExpandCell(animatedReplaceCell.getCurrentAnimatedValue(),
+                                                                new AnimatedExpandCell(true, currentCell));
+
+        } else if (AnimatedExpandCell.isAnimatedExpandCell(currentCell)) {
+            currentComponent = this._renderAnimatedExpandCell(animatedReplaceCell.getCurrentAnimatedValue(), currentCell);
+
+        } else {
+            throw new Error('error current cell type');
+        }
+
+        if (DataCell.isDataCell(replaceCell)) {
+            replaceComponent = (
+                <View style = {styles.mask}>
+                    {this._renderAnimatedDataCell(animatedReplaceCell.getReplaceAnimatedValue(),
+                                                    new AnimatedDataCell(false, replaceCell))}
+                </View>
+            );
+
+        } else if (AnimatedDataCell.isAnimatedDataCell(replaceCell)) {
+            replaceComponent = (
+                <View style = {styles.mask}>
+                    {this._renderAnimatedDataCell(animatedReplaceCell.getReplaceAnimatedValue(), replaceCell)}
+                </View>
+            );
+
+        } else if (ExpandCell.isExpandCell(replaceCell)) {
+            replaceComponent = (
+                <View style = {styles.mask}>
+                    {this._renderAnimatedExpandCell(animatedReplaceCell.getReplaceAnimatedValue(),
+                                                    new AnimatedExpandCell(false, replaceCell))}
+                </View>
+            );
+
+        } else if (AnimatedExpandCell.isAnimatedExpandCell(replaceCell)) {
+            replaceComponent = (
+                <View style = {styles.mask}>
+                    {this._renderAnimatedExpandCell(animatedReplaceCell.getReplaceAnimatedValue(), replaceCell)}
+                </View>
+            );
+
+        } else {
+            throw new Error('error current cell type');
+        }
+
+        return (
+            <View style = {styles.cell}>
+                {currentComponent}
+                {replaceComponent}
+            </View>
+        );
+    }
+
+    _drawCell (dataCell: CellType, columnIndex: number): ReactClass<any> {
+        if (ExpandCell.isExpandCell(dataCell)) {
+            return this._renderExpandCell(dataCell);
+
+        } else if (EmptyCell.isEmptyCell(dataCell)) {
+            return this._renderEmptyCell();
+
+        } else if (DataCell.isDataCell(dataCell)) {
+            return this._renderDataCell(dataCell);
+
+        } else if (AnimatedDataCell.isAnimatedDataCell(dataCell)) {
+            return this._renderAnimatedDataCell(dataCell.getAnimatedValue(), dataCell);
+
+        } else if (AnimatedExpandCell.isAnimatedExpandCell(dataCell)) {
+            return this._renderAnimatedExpandCell(dataCell.getAnimatedValue(), dataCell);
+
+        } else if (AnimatedReplaceCell.isAnimatedReplaceCell(dataCell)) {
+            return this._renderAnimatedReplaceCell(dataCell);
+
+        } else {
+            throw new Error('unknown cell type');
+        }
+    }
+
+    _drawRow (dataRow: Array<CellType>, rowIndex: number): ReactClass<any> {
+        let cellList = [];
+
+        dataRow.forEach((dataCell) => {
+            let cell = this._drawCell(dataCell);
             cellList.push(cell);
         });
 
         return (
-            <View style = {{
-                flexDirection: 'row'
-            }}>
+            <View key = {`row_${rowIndex}`} style = {styles.row}>
                 {cellList}
             </View>
         );
     }
 
     /*
-        渲染所有的Cell。
-        作用是判断该渲染哪几行。
+        渲染所有的row。
     */
     _drawTable (): Array<ReactClass<any>> {
         let rowComponentList = [];
@@ -325,15 +407,43 @@ class CellSelector extends Component {
 
     render () {
         return (
-            <View>
+            <Animated.View style = {{
+                opacity: this._tableOpacityValue
+            }}>
                 {this._drawTable()}
-            </View>
+            </Animated.View>
         );
+    }
+
+    _hideTable (next: () => void) {
+        Animated.timing(this._tableOpacityValue, {
+            toValue: 0,
+            duration: 250
+        }).start(next);
+    }
+
+    _showTable (next: () => void) {
+        Animated.timing(this._tableOpacityValue, {
+            toValue: 1,
+            duration: 250
+        }).start(next);
     }
 }
 
-const styles = StyleSheet.create({
-
+let styles = StyleSheet.create({
+    row: {
+        flexDirection: 'row'
+    },
+    cell: {
+        flex: 1
+    },
+    mask: {
+        position: 'absolute',
+        left: 0,
+        right: 0,
+        top: 0,
+        bottom: 0
+    }
 });
 
 export type CellSelectorType = CellSelector;

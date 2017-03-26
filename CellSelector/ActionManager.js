@@ -39,24 +39,19 @@ class ActionManager {
     dispatchUserAction (userAction: ActionType, actionListGenerateFinish: () => void) {
         switch (userAction.getType()) {
             case ACTION_TYPE.USER_EXPAND_TABLE:
-                this._generateUserExpandActionList(true);
+                this._generateUserExpandActionList();
                 actionListGenerateFinish();
                 break;
             case ACTION_TYPE.USER_PACKUP_TABLE:
-                this._generateUserPackupActionList(false);
+                this._generateUserPackupActionList();
+                actionListGenerateFinish();
+                break;
+            case ACTION_TYPE.USER_REPLACE_TABLE:
+                this._generateUserReplaceActionList();
                 actionListGenerateFinish();
                 break;
             default:
                 throw new Error('unknown action type to dispatch');
-        }
-    }
-
-    // 展开或收起时，生成actionList。
-    _generateActionList (isExpandAction: bool) {
-        if (isExpandAction) {
-            this._generateUserExpandActionList();
-        } else {
-            this._generateUserPackupActionList();
         }
     }
 
@@ -110,7 +105,7 @@ class ActionManager {
         let actionHideList = [];
         let replaceActionList = [];
 
-        for (let i = targetRenderTable.length - 1 ; i > -1 ; i--) {
+        for (let i = currentRenderTable.length - 1 ; i > -1 ; i--) {
             let targetRenderRow = targetRenderTable[i];
             let currentRenderRow = currentRenderTable[i];
 
@@ -129,7 +124,7 @@ class ActionManager {
                 }));
 
                 for (let j = tableWidth - 1 ; j > -1 ; j--) {
-                    let renderCell = targetRenderRow[j];
+                    let renderCell = currentRenderRow[j];
 
                     if (!EmptyCell.isEmptyCell(renderCell)) {
                         actionHideList.push(Action.generateHideAction({
@@ -150,6 +145,13 @@ class ActionManager {
         this._actionList.push(Action.generateRefreshRenderTableAction());
     }
 
+    _generateUserReplaceActionList () {
+        this._actionList = [];
+        this._actionList.push(Action.generateHideTableAction());
+        this._actionList.push(Action.generateRefreshRenderTableAction());
+        this._actionList.push(Action.generateShowTableAction());
+    }
+
     _generateReplaceAction (actionList: Array<ActionType>, rowIndex: number, columnIndex: number) {
         actionList.push(Action.generateReplaceAction({
             rowIndex,
@@ -163,15 +165,6 @@ class ActionManager {
             rowIndex,
             columnIndex
         }));
-    }
-
-    _generateRemoveAction () {
-
-    }
-
-    // 使用者更新数据后生成对应的actionList
-    _generateResetDataActionList () {
-
     }
 
     // 组件被unmount时生成对应的actionList，直接清空actionList即可。
