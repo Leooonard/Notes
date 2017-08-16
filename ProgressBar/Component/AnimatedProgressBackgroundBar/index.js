@@ -13,12 +13,11 @@ import {
 
 import type {
     AnimatedValueType
-} from '../../../../Type/AnimatedType';
+} from '../../Type/AnimatedType';
 
 import type {
-    AnimationSegment,
     EasingType
-} from '../../index';
+} from '../../Type/EasingType';
 
 import {
     JointBlock,
@@ -50,27 +49,11 @@ class AnimatedProgressBackgroundBar extends Component {
         super(props);
 
         this._translateXAnimation = new Animated.Value(0);
-        this._lastAnimationValue = 0;
         this._currentAnimationSegment = 0;
-        this._translateXAnimation.addListener(this._updateTranslateXAnimationValue.bind(this));
     }
 
     _hasNextAnimationSegment (): bool {
         return this._currentAnimationSegment < this.props.animationSegmentList.length;
-    }
-
-    _updateTranslateXAnimationValue (e: {
-        value: number
-    }) {
-        const animationValue = e.value * 100;
-        const {
-            onUpdateAnimationValue
-        } = this.props;
-
-        if (this._lastAnimationValue !== Math.ceil(animationValue)) {
-            this._lastAnimationValue = Math.ceil(animationValue);
-            onUpdateAnimationValue(this._lastAnimationValue);
-        }
     }
 
     _startAnimationSegment (animationOption: Object) {

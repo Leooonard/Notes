@@ -21,7 +21,7 @@ const windowWidth = Dimensions.get('window').width;
 const MAX_TRANSLATE_X_DISTANCE = 2 * (DARK_FILL_ITEM_WIDTH + LIGHT_FILL_ITEM_WIDTH) * Math.pow(2, 0.5) + 10;
 
 type Props = {
-    height: number
+    containerHeight: number
 };
 
 class ProgressFillBar extends Component {
@@ -62,14 +62,20 @@ class ProgressFillBar extends Component {
         return fillItemList;
     }
 
-    transformBackgroundColor () {
-        this._fillItemList.forEach(fillItem => fillItem && fillItem.transformBackgroundColor());
+    transformBackgroundColor (): Promise<any> {
+        return Promise.all(this._fillItemList.map(fillItem => {
+            if (fillItem) {
+                return fillItem.transformBackgroundColor();
+            } else {
+                return Promise.resolve();
+            }
+        }));
     }
 
     render () {
         return (
             <View style = {{
-                height: this.props.height,
+                height: this.props.containerHeight,
                 flexDirection: 'row',
                 transform: [
                     {

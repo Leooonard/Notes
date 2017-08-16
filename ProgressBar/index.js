@@ -9,9 +9,9 @@ import {
     StyleSheet
 } from 'react-native';
 
-import {
-    LinearGradient
-} from '@ctrip/crn';
+// import {
+//     LinearGradient
+// } from '@ctrip/crn';
 
 import {
     AnimatedProgressBackgroundBar,
@@ -155,12 +155,14 @@ class AnimatedProgressBar extends Component {
                     ref = {ref => this._animatedProgressFillBar = ref}
                     height = {progressBarHeight}
                 />
-                <LinearGradient
+                <View
                     start = {{x: 0, y: 0}}
                     end = {{x: 1, y: 1}}
                     colors = {['rgba(15, 199, 230, 0.5)', '#0FC7E6']}
-                    style = {styles.fullSize}
-                />
+                    style = {[styles.fullSize, {
+                        backgroundColor: 'rgba(255, 255, 255, 0.2)'
+                    }]}
+                ></View>
                 <AnimatedProgressBackgroundBar
                     ref = {ref => this._animatedProgressBackgroundBar = ref}
                     shape = {this.state.shape}

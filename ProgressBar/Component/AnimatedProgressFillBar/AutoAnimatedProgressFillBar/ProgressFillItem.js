@@ -34,12 +34,14 @@ class TransformableProgressFillItem extends Component {
         this._backgroundAnimatedValue = new Animated.Value(0);
     }
 
-    transformBackgroundColor () {
-        Animated.timing(this._backgroundAnimatedValue, {
-            toValue: 1,
-            duration: 500,
-            easing: Easing.linear
-        }).start();
+    transformBackgroundColor (): Promise<any> {
+        return new Promise(resolve => {
+            Animated.timing(this._backgroundAnimatedValue, {
+                toValue: 1,
+                duration: 500,
+                easing: Easing.linear
+            }).start(resolve);
+        });
     }
 
     render () {

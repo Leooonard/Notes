@@ -12,17 +12,33 @@ import {
 } from 'react-native';
 
 import {
-    ProgressFillBar,
-    MAX_TRANSLATE_X_DISTANCE
-} from './ProgressFillBar';
+    AutoAnimatedProgressFillBar
+} from './AutoAnimatedProgressFillBar';
 
 import type {
     AnimatedValueType
-} from '../../../../Type/AnimatedType';
+} from '../../Type/AnimatedType';
 
 import {
     RenewableAnimationWrapper
 } from '../../Library/RenewableAnimationWrapper';
+
+import {
+    SegmentAnimationWrapper
+} from '../../Library/SegmentAnimationWrapper';
+
+import type {
+    SegmentAnimation
+} from '../../Library/SegmentAnimationWrapper';
+
+import {
+    JointBlock,
+    ShapeMap
+} from '../JointBlock';
+
+import type {
+    ShapeType
+} from '../JointBlock';
 
 function animatePromisely (animatedValue: AnimatedValueType, option: Object): Promise<void> {
     return new Promise(resolve => {
@@ -31,70 +47,171 @@ function animatePromisely (animatedValue: AnimatedValueType, option: Object): Pr
 }
 
 type Props = {
-    height: number
+    onUpdateAnimationValue: (value: number) => void,
+    containerHeight: number,
+    containerWidth: number,
+    backgroundColor: string,
+    segmentAnimationList: Array<SegmentAnimation>
+};
+type State = {
+    shape: ShapeType
 };
 
-const DEFAULT_LOOP_DURATION = 2000;
-const FAST_LOOP_DURATION = 1000;
 class AnimatedProgressFillBar extends Component {
     props: Props;
-    _translateXAnimation: AnimatedValueType
-    _progressFillBar: ?ProgressFillBar;
-    _loopDuration: number;
+    state: State;
+    _translateXAnimation: AnimatedValueType;
+    _animatedProgressFillBar: ?AnimatedProgressFillBar;
+    _lastAnimationValue: number;
+    _segmentAnimationWrapper: SegmentAnimationWrapper;
+    _renewableAnimationWrapper: RenewableAnimationWrapper;
 
     constructor (props: Props) {
         super(props);
 
-        this._translateXAnimation = new Animated.Value(0)
-        this._loopDuration = DEFAULT_LOOP_DURATION;
+        this.state = {
+            shape: ShapeMap.square
+        };
+
+        this._lastAnimationValue = 0;
+        this._translateXAnimation = new Animated.Value(0);
+        this._translateXAnimation.addListener(this._updateTranslateXAnimationValue.bind(this));
+
+        const segmentAnimationList = this.props.segmentAnimationList.map(segmentAnimation => {
+            return {
+                ...segmentAnimation,
+                onReachEnd: this._wrapOnReachEnd(segmentAnimation.onReachEnd)
+            };
+        });
+        this._segmentAnimationWrapper = new SegmentAnimationWrapper(this._translateXAnimation, segmentAnimationList);
+        const {
+            easing,
+            duration
+        } = this._segmentAnimationWrapper.getCurrentSegmentAnimation();
+        this._renewableAnimationWrapper = new RenewableAnimationWrapper(easing, duration);
+    }
+
+    _wrapOnReachEnd (onReachEnd) {
+        return (i: number) => {
+            const result = onReachEnd(i);
+            this._onReachSegmentAnimationEnd(isStartNextSegmentAnimation);
+            return result;
+        };
+    }
+
+    _onReachSegmentAnimationEnd (isStartNextSegmentAnimation: bool) {
+        if (!this._segmentAnimationWrapper.hasNextSegmentAnimation()) {
+            return;
+        }
+
+        const {
+            easing,
+            duration
+        } = this._segmentAnimationWrapper.getCurrentSegmentAnimation();
+        this._renewableAnimationWrapper = new RenewableAnimationWrapper(easing, duration);
+        if (isStartNextSegmentAnimation) {
+            this._renewableAnimationWrapper.start();
+        }
+    }
+
+    _updateTranslateXAnimationValue (e: {
+        value: number
+    }) {
+        const animationValue = e.value * 100;
+        const {
+            onUpdateAnimationValue
+        } = this.props;
+
+        if (this._lastAnimationValue !== Math.ceil(animationValue)) {
+            this._lastAnimationValue = Math.ceil(animationValue);
+            onUpdateAnimationValue(this._lastAnimationValue);
+        }
+    }
+
+    getAnimatedValue () {
+        return this._translateXAnimation.value;
+    }
+
+    _setStatePromisely (state: Object): Promise<any> {
+        return new Promise(resolve => {
+            this.setState(state, resolve);
+        });
     }
 
     componentDidMount () {
-        this._loopAnimation();
+        this._segmentAnimationList.start({
+            easing: this._renewableAnimationWrapper.getEasing()
+        });
+        this._renewableAnimationWrapper.start();
     }
 
-    _loopAnimation () {
-        animatePromisely(this._translateXAnimation, {
-            toValue: 1,
-            duration: this._loopDuration,
-            easing: Easing.linear,
-            useNativeDriver: true
-        })
-        .then(() => this._translateXAnimation.setValue(0))
-        .then(this._loopAnimation.bind(this));
+    transform (): Promise<any> {
+        if (this._animatedProgressFillBar) {
+            return this._animatedProgressFillBar
+            .transformBackgroundColor()
+            .then(() => this._setStatePromisely({
+                shape: ShapeMap.emptyTriangle
+            }));
+        } else {
+            return Promise.resolve();
+        }
     }
 
-    _stopLoop () {
-        this._translateXAnimation.stopAnimation();
+    start () {
+        this._segmentAnimationWrapper.start();
+        this._renewableAnimationWrapper.start();
     }
 
-    transform () {
-        this._progressFillBar &&
-        this._progressFillBar.transformBackgroundColor();
-        this._loopDuration = FAST_LOOP_DURATION;
+    pause () {
+        this._segmentAnimationWrapper.stop();
+        this._renewableAnimationWrapper.pause();
+    }
+
+    resume (segmentAnimation?: segmentAnimation = {}) {
+        const animationOption = this._renewableAnimationWrapper.resume();
+        this._segmentAnimationList.start({
+            ...animationOption,
+            ...segmentAnimation
+        });
     }
 
     render () {
+        const {
+            containerWidth,
+            containerHeight,
+            backgroundColor
+        } = this.props;
+
+        const {
+            shape
+        } = this.state;
+
         return (
-            <View style = {{
-                flex: 0
+            <Animated.View style = {{
+                flexDirection: 'row',
+                height: containerHeight,
+                flex: 0,
+                transform: [
+                    {
+                        translateX: this._translateXAnimation.interpolate({
+                            inputRange: [0, 1],
+                            outputRange: [-1 * containerWidth, 0]
+                        })
+                    }
+                ]
             }}>
-                <Animated.View style = {{
-                    transform: [
-                        {
-                            translateX: this._translateXAnimation.interpolate({
-                                inputRange: [0, 1],
-                                outputRange: [0, 1 * MAX_TRANSLATE_X_DISTANCE]
-                            })
-                        }
-                    ]
+                <View style = {{
+                    width: containerWidth
                 }}>
-                    <ProgressFillBar
-                        ref = {ref => this._progressFillBar = ref}
-                        height = {this.props.height}
-                    />
-                </Animated.View>
-            </View>
+                    <AutoAnimatedProgressFillBar containerHeight = {containerHeight}/>
+                </View>
+                <JointBlock
+                    shape = {shape}
+                    width = {containerHeight / 2}
+                    height = {containerHeight}
+                    backgroundColor = {backgroundColor}
+                />
+            </Animated.View>
         );
     }
 }
